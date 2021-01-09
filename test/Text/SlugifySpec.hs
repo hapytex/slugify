@@ -8,14 +8,14 @@ import Text.Slugify(isWordChar)
 
 spec :: Spec
 spec = describe "isWordChar" $ do
-    it "range check" (length filter_words `shouldBe` length word_ord)
-    it "range check" (filter_words `shouldBe` word_ord)
+    it "length check" (length filteredWords `shouldBe` length wordChars)
+    it "equality check" (filteredWords `shouldBe` wordChars)
 
-filter_words :: [Int]
-filter_words = filter (isWordChar . chr) [0 .. 0x10ffff]
+filteredWords :: [Int]
+filteredWords = filter (isWordChar . chr) [0 .. 0x10ffff]
 
-word_ord :: [Int]
-word_ord = [
+wordChars :: [Int]
+wordChars = [
     48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74
   , 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 95, 97, 98, 99
   , 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119
