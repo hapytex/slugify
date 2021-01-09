@@ -2,7 +2,7 @@ name:                slugify
 version:             0.1.0.0
 -- synopsis:
 -- description:
-homepage:            https://github.com/KommuSoft/slugify#readme
+homepage:            https://github.com/hapytex/slugify#readme
 license:             BSD3
 license-file:        LICENSE
 author:              Willem Van Onsem
@@ -49,4 +49,4 @@ test-suite gulsify
 
 source-repository head
   type:     git
-  location: https://github.com/KommuSoft/slugify
+  location: https://github.com/hapytex/slugify
