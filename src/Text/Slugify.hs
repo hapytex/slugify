@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, Safe #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 {-|
 Module      : Text.Slugify
