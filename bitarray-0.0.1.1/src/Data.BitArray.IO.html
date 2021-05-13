@@ -1,0 +1,417 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span>
+</span><span id="line-2"></span><span class="hs-comment">-- | Mutable one-dimensional packed bit arrays in the IO monad.</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Data.BitArray.IO</span><span>
+</span><span id="line-5"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Data.BitArray.IO.html#IOBitArray"><span class="hs-identifier">IOBitArray</span></a></span><span> </span><span>
+</span><span id="line-6"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.BitArray.IO.html#getBitArrayBounds"><span class="hs-identifier">getBitArrayBounds</span></a></span><span>
+</span><span id="line-7"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.BitArray.IO.html#newBitArray"><span class="hs-identifier">newBitArray</span></a></span><span>
+</span><span id="line-8"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.BitArray.IO.html#readBit"><span class="hs-identifier">readBit</span></a></span><span>
+</span><span id="line-9"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.BitArray.IO.html#writeBit"><span class="hs-identifier">writeBit</span></a></span><span>
+</span><span id="line-10"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.BitArray.IO.html#flipBit"><span class="hs-identifier">flipBit</span></a></span><span>
+</span><span id="line-11"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.BitArray.IO.html#unsafeReadBit"><span class="hs-identifier">unsafeReadBit</span></a></span><span>
+</span><span id="line-12"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.BitArray.IO.html#unsafeWriteBit"><span class="hs-identifier">unsafeWriteBit</span></a></span><span>
+</span><span id="line-13"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.BitArray.IO.html#unsafeFlipBit"><span class="hs-identifier">unsafeFlipBit</span></a></span><span>
+</span><span id="line-14"></span><span>  </span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.BitArray.IO.html#thawBitArray"><span class="hs-identifier">thawBitArray</span></a></span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.BitArray.IO.html#unsafeThawBitArray"><span class="hs-identifier">unsafeThawBitArray</span></a></span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.BitArray.IO.html#freezeBitArray"><span class="hs-identifier">freezeBitArray</span></a></span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.BitArray.IO.html#unsafeFreezeBitArray"><span class="hs-identifier">unsafeFreezeBitArray</span></a></span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-21"></span><span>
+</span><span id="line-22"></span><span class="hs-comment">--------------------------------------------------------------------------------</span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Word</span></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Bits</span></span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Array.IO</span></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Array.Unsafe</span></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.BitArray.Immutable.html"><span class="hs-identifier">Data.BitArray.Immutable</span></a></span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="hs-comment">--------------------------------------------------------------------------------</span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">data</span><span> </span><span id="IOBitArray"><span class="annot"><a href="Data.BitArray.IO.html#IOBitArray"><span class="hs-identifier hs-var">IOBitArray</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="IOA"><span class="annot"><a href="Data.BitArray.IO.html#IOA"><span class="hs-identifier hs-var">IOA</span></a></span></span><span> </span><span>
+</span><span id="line-35"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="_first"><span class="annot"><span class="annottext">IOBitArray -&gt; Int
+</span><a href="Data.BitArray.IO.html#_first"><span class="hs-identifier hs-var hs-var">_first</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-pragma">{-# UNPACK</span><span> </span><span class="hs-pragma">#-}</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span>
+</span><span id="line-36"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="_last"><span class="annot"><span class="annottext">IOBitArray -&gt; Int
+</span><a href="Data.BitArray.IO.html#_last"><span class="hs-identifier hs-var hs-var">_last</span></a></span></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-pragma">{-# UNPACK</span><span> </span><span class="hs-pragma">#-}</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span>
+</span><span id="line-37"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="_words"><span class="annot"><span class="annottext">IOBitArray -&gt; IOUArray Int Word64
+</span><a href="Data.BitArray.IO.html#_words"><span class="hs-identifier hs-var hs-var">_words</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-pragma">{-# UNPACK</span><span> </span><span class="hs-pragma">#-}</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IOUArray</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word64</span></span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-39"></span><span>  </span><span>
+</span><span id="line-40"></span><span class="hs-comment">--------------------------------------------------------------------------------</span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="annot"><a href="Data.BitArray.IO.html#getBitArrayBounds"><span class="hs-identifier hs-type">getBitArrayBounds</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.BitArray.IO.html#IOBitArray"><span class="hs-identifier hs-type">IOBitArray</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">,</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span>
+</span><span id="line-43"></span><span id="getBitArrayBounds"><span class="annot"><span class="annottext">getBitArrayBounds :: IOBitArray -&gt; IO (Int, Int)
+</span><a href="Data.BitArray.IO.html#getBitArrayBounds"><span class="hs-identifier hs-var hs-var">getBitArrayBounds</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.BitArray.IO.html#IOA"><span class="hs-identifier hs-type">IOA</span></a></span><span> </span><span id="local-6989586621679045864"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621679045864"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679045863"><span class="annot"><span class="annottext">t :: Int
+</span><a href="#local-6989586621679045863"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Int, Int) -&gt; IO (Int, Int)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045864"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045863"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="annot"><a href="Data.BitArray.IO.html#newBitArray"><span class="hs-identifier hs-type">newBitArray</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">,</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="Data.BitArray.IO.html#IOBitArray"><span class="hs-identifier hs-type">IOBitArray</span></a></span><span>
+</span><span id="line-46"></span><span id="newBitArray"><span class="annot"><span class="annottext">newBitArray :: (Int, Int) -&gt; Bool -&gt; IO IOBitArray
+</span><a href="Data.BitArray.IO.html#newBitArray"><span class="hs-identifier hs-var hs-var">newBitArray</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679045862"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621679045862"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679045861"><span class="annot"><span class="annottext">t :: Int
+</span><a href="#local-6989586621679045861"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679045860"><span class="annot"><span class="annottext">b :: Bool
+</span><a href="#local-6989586621679045860"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045861"><span class="hs-identifier hs-var">t</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045862"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-47"></span><span>  </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; IO IOBitArray
+forall a. HasCallStack =&gt; [Char] -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="hs-string">&quot;IOBitArray/newBitArray: empty range&quot;</span></span><span>
+</span><span id="line-48"></span><span>  </span><span class="hs-keyword">else</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-49"></span><span>    </span><span id="local-6989586621679045857"><span class="annot"><span class="annottext">IOUArray Int Word64
+</span><a href="#local-6989586621679045857"><span class="hs-identifier hs-var">words</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Int, Int) -&gt; Word64 -&gt; IO (IOUArray Int Word64)
+forall (a :: * -&gt; * -&gt; *) e (m :: * -&gt; *) i.
+(MArray a e m, Ix i) =&gt;
+(i, i) -&gt; e -&gt; m (a i e)
+</span><span class="hs-identifier hs-var">newArray</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045855"><span class="hs-identifier hs-var">k</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span class="annot"><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679045854"><span class="hs-identifier hs-var">w</span></a></span><span>
+</span><span id="line-50"></span><span>    </span><span class="annot"><span class="annottext">IOBitArray -&gt; IO IOBitArray
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; IOUArray Int Word64 -&gt; IOBitArray
+</span><a href="Data.BitArray.IO.html#IOA"><span class="hs-identifier hs-var">IOA</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045862"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045861"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">IOUArray Int Word64
+</span><a href="#local-6989586621679045857"><span class="hs-identifier hs-var">words</span></a></span><span class="hs-special">)</span><span>    </span><span>
+</span><span id="line-51"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-52"></span><span>    </span><span id="local-6989586621679045855"><span class="annot"><span class="annottext">k :: Int
+</span><a href="#local-6989586621679045855"><span class="hs-identifier hs-var hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045861"><span class="hs-identifier hs-var">t</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045862"><span class="hs-identifier hs-var">s</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span class="annot"><span class="hs-number">64</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Bits a =&gt; a -&gt; Int -&gt; a
+</span><span class="hs-operator hs-var">`shiftR`</span></span><span> </span><span class="annot"><span class="hs-number">6</span></span><span>
+</span><span id="line-53"></span><span>    </span><span id="local-6989586621679045854"><span class="annot"><span class="annottext">w :: Word64
+</span><a href="#local-6989586621679045854"><span class="hs-identifier hs-var hs-var">w</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679045860"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-54"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">False</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-number">0</span></span><span>
+</span><span id="line-55"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">True</span></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-number">0xFFFFFFFFFFFFFFFF</span></span><span>
+</span><span id="line-56"></span><span class="hs-comment">--               fedcba9876543210       </span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span class="annot"><a href="Data.BitArray.IO.html#readBit"><span class="hs-identifier hs-type">readBit</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.BitArray.IO.html#IOBitArray"><span class="hs-identifier hs-type">IOBitArray</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-59"></span><span id="readBit"><span class="annot"><span class="annottext">readBit :: IOBitArray -&gt; Int -&gt; IO Bool
+</span><a href="Data.BitArray.IO.html#readBit"><span class="hs-identifier hs-var hs-var">readBit</span></a></span></span><span> </span><span id="local-6989586621679045851"><span class="annot"><span class="annottext">ar :: IOBitArray
+</span><a href="#local-6989586621679045851"><span class="hs-identifier hs-var">ar</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Data.BitArray.IO.html#IOA"><span class="hs-identifier hs-type">IOA</span></a></span><span> </span><span id="local-6989586621679045850"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621679045850"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679045849"><span class="annot"><span class="annottext">t :: Int
+</span><a href="#local-6989586621679045849"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span id="local-6989586621679045848"><span class="annot"><span class="annottext">j :: Int
+</span><a href="#local-6989586621679045848"><span class="hs-identifier hs-var">j</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045848"><span class="hs-identifier hs-var">j</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045850"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045848"><span class="hs-identifier hs-var">j</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;</span></span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045849"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span>
+</span><span id="line-60"></span><span>  </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; IO Bool
+forall a. HasCallStack =&gt; [Char] -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="hs-string">&quot;IOBitArray/readBit: index out of range&quot;</span></span><span>
+</span><span id="line-61"></span><span>  </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">IOBitArray -&gt; Int -&gt; IO Bool
+</span><a href="Data.BitArray.IO.html#unsafeReadBit"><span class="hs-identifier hs-var">unsafeReadBit</span></a></span><span> </span><span class="annot"><span class="annottext">IOBitArray
+</span><a href="#local-6989586621679045851"><span class="hs-identifier hs-var">ar</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045848"><span class="hs-identifier hs-var">j</span></a></span><span> </span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span class="annot"><a href="Data.BitArray.IO.html#unsafeReadBit"><span class="hs-identifier hs-type">unsafeReadBit</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.BitArray.IO.html#IOBitArray"><span class="hs-identifier hs-type">IOBitArray</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-64"></span><span id="unsafeReadBit"><span class="annot"><span class="annottext">unsafeReadBit :: IOBitArray -&gt; Int -&gt; IO Bool
+</span><a href="Data.BitArray.IO.html#unsafeReadBit"><span class="hs-identifier hs-var hs-var">unsafeReadBit</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.BitArray.IO.html#IOA"><span class="hs-identifier hs-type">IOA</span></a></span><span> </span><span id="local-6989586621679045845"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621679045845"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679045844"><span class="annot"><span class="annottext">t :: Int
+</span><a href="#local-6989586621679045844"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span id="local-6989586621679045843"><span class="annot"><span class="annottext">a :: IOUArray Int Word64
+</span><a href="#local-6989586621679045843"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679045842"><span class="annot"><span class="annottext">j :: Int
+</span><a href="#local-6989586621679045842"><span class="hs-identifier hs-var">j</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-65"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679045841"><span class="annot"><span class="annottext">k :: Int
+</span><a href="#local-6989586621679045841"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679045840"><span class="annot"><span class="annottext">l :: Int
+</span><a href="#local-6989586621679045840"><span class="hs-identifier hs-var">l</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; (Int, Int)
+</span><a href="Data.BitArray.Immutable.html#ind"><span class="hs-identifier hs-var">ind</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045842"><span class="hs-identifier hs-var">j</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045845"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-66"></span><span>  </span><span id="local-6989586621679045838"><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679045838"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IOUArray Int Word64 -&gt; Int -&gt; IO Word64
+forall (a :: * -&gt; * -&gt; *) e (m :: * -&gt; *) i.
+(MArray a e m, Ix i) =&gt;
+a i e -&gt; i -&gt; m e
+</span><span class="hs-identifier hs-var">readArray</span></span><span> </span><span class="annot"><span class="annottext">IOUArray Int Word64
+</span><a href="#local-6989586621679045843"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045841"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-67"></span><span>  </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679045838"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Int -&gt; Bool
+forall a. Bits a =&gt; a -&gt; Int -&gt; Bool
+</span><span class="hs-operator hs-var">`testBit`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045840"><span class="hs-identifier hs-var">l</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-68"></span><span>
+</span><span id="line-69"></span><span class="annot"><a href="Data.BitArray.IO.html#writeBit"><span class="hs-identifier hs-type">writeBit</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.BitArray.IO.html#IOBitArray"><span class="hs-identifier hs-type">IOBitArray</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-70"></span><span id="writeBit"><span class="annot"><span class="annottext">writeBit :: IOBitArray -&gt; Int -&gt; Bool -&gt; IO ()
+</span><a href="Data.BitArray.IO.html#writeBit"><span class="hs-identifier hs-var hs-var">writeBit</span></a></span></span><span> </span><span id="local-6989586621679045835"><span class="annot"><span class="annottext">ar :: IOBitArray
+</span><a href="#local-6989586621679045835"><span class="hs-identifier hs-var">ar</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Data.BitArray.IO.html#IOA"><span class="hs-identifier hs-type">IOA</span></a></span><span> </span><span id="local-6989586621679045834"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621679045834"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679045833"><span class="annot"><span class="annottext">t :: Int
+</span><a href="#local-6989586621679045833"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span id="local-6989586621679045832"><span class="annot"><span class="annottext">j :: Int
+</span><a href="#local-6989586621679045832"><span class="hs-identifier hs-var">j</span></a></span></span><span> </span><span id="local-6989586621679045831"><span class="annot"><span class="annottext">b :: Bool
+</span><a href="#local-6989586621679045831"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045832"><span class="hs-identifier hs-var">j</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045834"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045832"><span class="hs-identifier hs-var">j</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;</span></span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045833"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span>
+</span><span id="line-71"></span><span>  </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; IO ()
+forall a. HasCallStack =&gt; [Char] -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="hs-string">&quot;IOBitArray/writeBit: index out of range&quot;</span></span><span>
+</span><span id="line-72"></span><span>  </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">IOBitArray -&gt; Int -&gt; Bool -&gt; IO ()
+</span><a href="Data.BitArray.IO.html#unsafeWriteBit"><span class="hs-identifier hs-var">unsafeWriteBit</span></a></span><span> </span><span class="annot"><span class="annottext">IOBitArray
+</span><a href="#local-6989586621679045835"><span class="hs-identifier hs-var">ar</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045832"><span class="hs-identifier hs-var">j</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679045831"><span class="hs-identifier hs-var">b</span></a></span><span>
+</span><span id="line-73"></span><span>
+</span><span id="line-74"></span><span class="annot"><a href="Data.BitArray.IO.html#unsafeWriteBit"><span class="hs-identifier hs-type">unsafeWriteBit</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.BitArray.IO.html#IOBitArray"><span class="hs-identifier hs-type">IOBitArray</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span><span id="unsafeWriteBit"><span class="annot"><span class="annottext">unsafeWriteBit :: IOBitArray -&gt; Int -&gt; Bool -&gt; IO ()
+</span><a href="Data.BitArray.IO.html#unsafeWriteBit"><span class="hs-identifier hs-var hs-var">unsafeWriteBit</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.BitArray.IO.html#IOA"><span class="hs-identifier hs-type">IOA</span></a></span><span> </span><span id="local-6989586621679045830"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621679045830"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679045829"><span class="annot"><span class="annottext">t :: Int
+</span><a href="#local-6989586621679045829"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span id="local-6989586621679045828"><span class="annot"><span class="annottext">a :: IOUArray Int Word64
+</span><a href="#local-6989586621679045828"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679045827"><span class="annot"><span class="annottext">j :: Int
+</span><a href="#local-6989586621679045827"><span class="hs-identifier hs-var">j</span></a></span></span><span> </span><span id="local-6989586621679045826"><span class="annot"><span class="annottext">b :: Bool
+</span><a href="#local-6989586621679045826"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-76"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679045825"><span class="annot"><span class="annottext">k :: Int
+</span><a href="#local-6989586621679045825"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679045824"><span class="annot"><span class="annottext">l :: Int
+</span><a href="#local-6989586621679045824"><span class="hs-identifier hs-var">l</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; (Int, Int)
+</span><a href="Data.BitArray.Immutable.html#ind"><span class="hs-identifier hs-var">ind</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045827"><span class="hs-identifier hs-var">j</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045830"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-77"></span><span>  </span><span id="local-6989586621679045823"><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679045823"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IOUArray Int Word64 -&gt; Int -&gt; IO Word64
+forall (a :: * -&gt; * -&gt; *) e (m :: * -&gt; *) i.
+(MArray a e m, Ix i) =&gt;
+a i e -&gt; i -&gt; m e
+</span><span class="hs-identifier hs-var">readArray</span></span><span> </span><span class="annot"><span class="annottext">IOUArray Int Word64
+</span><a href="#local-6989586621679045828"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045825"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-78"></span><span>  </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679045826"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span>
+</span><span id="line-79"></span><span>    </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">IOUArray Int Word64 -&gt; Int -&gt; Word64 -&gt; IO ()
+forall (a :: * -&gt; * -&gt; *) e (m :: * -&gt; *) i.
+(MArray a e m, Ix i) =&gt;
+a i e -&gt; i -&gt; e -&gt; m ()
+</span><span class="hs-identifier hs-var">writeArray</span></span><span> </span><span class="annot"><span class="annottext">IOUArray Int Word64
+</span><a href="#local-6989586621679045828"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045825"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679045823"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Int -&gt; Word64
+forall a. Bits a =&gt; a -&gt; Int -&gt; a
+</span><span class="hs-operator hs-var">`setBit`</span></span><span>   </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045824"><span class="hs-identifier hs-var">l</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-80"></span><span>    </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">IOUArray Int Word64 -&gt; Int -&gt; Word64 -&gt; IO ()
+forall (a :: * -&gt; * -&gt; *) e (m :: * -&gt; *) i.
+(MArray a e m, Ix i) =&gt;
+a i e -&gt; i -&gt; e -&gt; m ()
+</span><span class="hs-identifier hs-var">writeArray</span></span><span> </span><span class="annot"><span class="annottext">IOUArray Int Word64
+</span><a href="#local-6989586621679045828"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045825"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679045823"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Int -&gt; Word64
+forall a. Bits a =&gt; a -&gt; Int -&gt; a
+</span><span class="hs-operator hs-var">`clearBit`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045824"><span class="hs-identifier hs-var">l</span></a></span><span class="hs-special">)</span><span>  </span><span>
+</span><span id="line-81"></span><span>  </span><span class="annot"><span class="annottext">() -&gt; IO ()
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span class="hs-comment">-- | flips the bit and returns the /old/ value</span><span>
+</span><span id="line-84"></span><span class="annot"><a href="Data.BitArray.IO.html#flipBit"><span class="hs-identifier hs-type">flipBit</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.BitArray.IO.html#IOBitArray"><span class="hs-identifier hs-type">IOBitArray</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-85"></span><span id="flipBit"><span class="annot"><span class="annottext">flipBit :: IOBitArray -&gt; Int -&gt; IO Bool
+</span><a href="Data.BitArray.IO.html#flipBit"><span class="hs-identifier hs-var hs-var">flipBit</span></a></span></span><span> </span><span id="local-6989586621679045819"><span class="annot"><span class="annottext">ar :: IOBitArray
+</span><a href="#local-6989586621679045819"><span class="hs-identifier hs-var">ar</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Data.BitArray.IO.html#IOA"><span class="hs-identifier hs-type">IOA</span></a></span><span> </span><span id="local-6989586621679045818"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621679045818"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679045817"><span class="annot"><span class="annottext">t :: Int
+</span><a href="#local-6989586621679045817"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span id="local-6989586621679045816"><span class="annot"><span class="annottext">j :: Int
+</span><a href="#local-6989586621679045816"><span class="hs-identifier hs-var">j</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045816"><span class="hs-identifier hs-var">j</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045818"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045816"><span class="hs-identifier hs-var">j</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;</span></span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045817"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span>
+</span><span id="line-86"></span><span>  </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; IO Bool
+forall a. HasCallStack =&gt; [Char] -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="hs-string">&quot;IOBitArray/flipBit: index out of range&quot;</span></span><span>
+</span><span id="line-87"></span><span>  </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">IOBitArray -&gt; Int -&gt; IO Bool
+</span><a href="Data.BitArray.IO.html#unsafeFlipBit"><span class="hs-identifier hs-var">unsafeFlipBit</span></a></span><span> </span><span class="annot"><span class="annottext">IOBitArray
+</span><a href="#local-6989586621679045819"><span class="hs-identifier hs-var">ar</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045816"><span class="hs-identifier hs-var">j</span></a></span><span>
+</span><span id="line-88"></span><span>
+</span><span id="line-89"></span><span class="annot"><a href="Data.BitArray.IO.html#unsafeFlipBit"><span class="hs-identifier hs-type">unsafeFlipBit</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.BitArray.IO.html#IOBitArray"><span class="hs-identifier hs-type">IOBitArray</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-90"></span><span id="unsafeFlipBit"><span class="annot"><span class="annottext">unsafeFlipBit :: IOBitArray -&gt; Int -&gt; IO Bool
+</span><a href="Data.BitArray.IO.html#unsafeFlipBit"><span class="hs-identifier hs-var hs-var">unsafeFlipBit</span></a></span></span><span> </span><span id="local-6989586621679045815"><span class="annot"><span class="annottext">ar :: IOBitArray
+</span><a href="#local-6989586621679045815"><span class="hs-identifier hs-var">ar</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Data.BitArray.IO.html#IOA"><span class="hs-identifier hs-type">IOA</span></a></span><span> </span><span id="local-6989586621679045814"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621679045814"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679045813"><span class="annot"><span class="annottext">t :: Int
+</span><a href="#local-6989586621679045813"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span id="local-6989586621679045812"><span class="annot"><span class="annottext">a :: IOUArray Int Word64
+</span><a href="#local-6989586621679045812"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679045811"><span class="annot"><span class="annottext">j :: Int
+</span><a href="#local-6989586621679045811"><span class="hs-identifier hs-var">j</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-91"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679045810"><span class="annot"><span class="annottext">k :: Int
+</span><a href="#local-6989586621679045810"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679045809"><span class="annot"><span class="annottext">l :: Int
+</span><a href="#local-6989586621679045809"><span class="hs-identifier hs-var">l</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; (Int, Int)
+</span><a href="Data.BitArray.Immutable.html#ind"><span class="hs-identifier hs-var">ind</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045811"><span class="hs-identifier hs-var">j</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045814"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-92"></span><span>  </span><span id="local-6989586621679045808"><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679045808"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IOUArray Int Word64 -&gt; Int -&gt; IO Word64
+forall (a :: * -&gt; * -&gt; *) e (m :: * -&gt; *) i.
+(MArray a e m, Ix i) =&gt;
+a i e -&gt; i -&gt; m e
+</span><span class="hs-identifier hs-var">readArray</span></span><span> </span><span class="annot"><span class="annottext">IOUArray Int Word64
+</span><a href="#local-6989586621679045812"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045810"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-93"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679045807"><span class="annot"><span class="annottext">b :: Bool
+</span><a href="#local-6989586621679045807"><span class="hs-identifier hs-var hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679045808"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Int -&gt; Bool
+forall a. Bits a =&gt; a -&gt; Int -&gt; Bool
+</span><span class="hs-operator hs-var">`testBit`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045809"><span class="hs-identifier hs-var">l</span></a></span><span>
+</span><span id="line-94"></span><span>  </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679045807"><span class="hs-identifier hs-var">b</span></a></span><span>
+</span><span id="line-95"></span><span>    </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">IOUArray Int Word64 -&gt; Int -&gt; Word64 -&gt; IO ()
+forall (a :: * -&gt; * -&gt; *) e (m :: * -&gt; *) i.
+(MArray a e m, Ix i) =&gt;
+a i e -&gt; i -&gt; e -&gt; m ()
+</span><span class="hs-identifier hs-var">writeArray</span></span><span> </span><span class="annot"><span class="annottext">IOUArray Int Word64
+</span><a href="#local-6989586621679045812"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045810"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679045808"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Int -&gt; Word64
+forall a. Bits a =&gt; a -&gt; Int -&gt; a
+</span><span class="hs-operator hs-var">`clearBit`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045809"><span class="hs-identifier hs-var">l</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-96"></span><span>    </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">IOUArray Int Word64 -&gt; Int -&gt; Word64 -&gt; IO ()
+forall (a :: * -&gt; * -&gt; *) e (m :: * -&gt; *) i.
+(MArray a e m, Ix i) =&gt;
+a i e -&gt; i -&gt; e -&gt; m ()
+</span><span class="hs-identifier hs-var">writeArray</span></span><span> </span><span class="annot"><span class="annottext">IOUArray Int Word64
+</span><a href="#local-6989586621679045812"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045810"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679045808"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Int -&gt; Word64
+forall a. Bits a =&gt; a -&gt; Int -&gt; a
+</span><span class="hs-operator hs-var">`setBit`</span></span><span>   </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045809"><span class="hs-identifier hs-var">l</span></a></span><span class="hs-special">)</span><span>  </span><span>
+</span><span id="line-97"></span><span>  </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679045807"><span class="hs-identifier hs-var">b</span></a></span><span>
+</span><span id="line-98"></span><span>    </span><span>
+</span><span id="line-99"></span><span class="hs-comment">--------------------------------------------------------------------------------</span><span>
+</span><span id="line-100"></span><span>    </span><span>
+</span><span id="line-101"></span><span class="annot"><a href="Data.BitArray.IO.html#thawBitArray"><span class="hs-identifier hs-type">thawBitArray</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.BitArray.Immutable.html#BitArray"><span class="hs-identifier hs-type">BitArray</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="Data.BitArray.IO.html#IOBitArray"><span class="hs-identifier hs-type">IOBitArray</span></a></span><span>
+</span><span id="line-102"></span><span id="thawBitArray"><span class="annot"><span class="annottext">thawBitArray :: BitArray -&gt; IO IOBitArray
+</span><a href="Data.BitArray.IO.html#thawBitArray"><span class="hs-identifier hs-var hs-var">thawBitArray</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.BitArray.Immutable.html#A"><span class="hs-identifier hs-type">A</span></a></span><span> </span><span id="local-6989586621679045805"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621679045805"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679045804"><span class="annot"><span class="annottext">t :: Int
+</span><a href="#local-6989586621679045804"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span id="local-6989586621679045803"><span class="annot"><span class="annottext">x :: UArray Int Word64
+</span><a href="#local-6989586621679045803"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span>
+</span><span id="line-103"></span><span>  </span><span class="annot"><span class="annottext">UArray Int Word64 -&gt; IO (IOUArray Int Word64)
+forall i (a :: * -&gt; * -&gt; *) e (b :: * -&gt; * -&gt; *) (m :: * -&gt; *).
+(Ix i, IArray a e, MArray b e m) =&gt;
+a i e -&gt; m (b i e)
+</span><span class="hs-identifier hs-var">thaw</span></span><span> </span><span class="annot"><span class="annottext">UArray Int Word64
+</span><a href="#local-6989586621679045803"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">IO (IOUArray Int Word64)
+-&gt; (IOUArray Int Word64 -&gt; IO IOBitArray) -&gt; IO IOBitArray
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679045801"><span class="annot"><span class="annottext">y :: IOUArray Int Word64
+</span><a href="#local-6989586621679045801"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IOBitArray -&gt; IO IOBitArray
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; IOUArray Int Word64 -&gt; IOBitArray
+</span><a href="Data.BitArray.IO.html#IOA"><span class="hs-identifier hs-var">IOA</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045805"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045804"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">IOUArray Int Word64
+</span><a href="#local-6989586621679045801"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-104"></span><span>
+</span><span id="line-105"></span><span class="annot"><a href="Data.BitArray.IO.html#unsafeThawBitArray"><span class="hs-identifier hs-type">unsafeThawBitArray</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.BitArray.Immutable.html#BitArray"><span class="hs-identifier hs-type">BitArray</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="Data.BitArray.IO.html#IOBitArray"><span class="hs-identifier hs-type">IOBitArray</span></a></span><span>
+</span><span id="line-106"></span><span id="unsafeThawBitArray"><span class="annot"><span class="annottext">unsafeThawBitArray :: BitArray -&gt; IO IOBitArray
+</span><a href="Data.BitArray.IO.html#unsafeThawBitArray"><span class="hs-identifier hs-var hs-var">unsafeThawBitArray</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.BitArray.Immutable.html#A"><span class="hs-identifier hs-type">A</span></a></span><span> </span><span id="local-6989586621679045800"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621679045800"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679045799"><span class="annot"><span class="annottext">t :: Int
+</span><a href="#local-6989586621679045799"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span id="local-6989586621679045798"><span class="annot"><span class="annottext">x :: UArray Int Word64
+</span><a href="#local-6989586621679045798"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span>
+</span><span id="line-107"></span><span>  </span><span class="annot"><span class="annottext">UArray Int Word64 -&gt; IO (IOUArray Int Word64)
+forall i (a :: * -&gt; * -&gt; *) e (b :: * -&gt; * -&gt; *) (m :: * -&gt; *).
+(Ix i, IArray a e, MArray b e m) =&gt;
+a i e -&gt; m (b i e)
+</span><span class="hs-identifier hs-var">unsafeThaw</span></span><span> </span><span class="annot"><span class="annottext">UArray Int Word64
+</span><a href="#local-6989586621679045798"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">IO (IOUArray Int Word64)
+-&gt; (IOUArray Int Word64 -&gt; IO IOBitArray) -&gt; IO IOBitArray
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679045796"><span class="annot"><span class="annottext">y :: IOUArray Int Word64
+</span><a href="#local-6989586621679045796"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IOBitArray -&gt; IO IOBitArray
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; IOUArray Int Word64 -&gt; IOBitArray
+</span><a href="Data.BitArray.IO.html#IOA"><span class="hs-identifier hs-var">IOA</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045800"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045799"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">IOUArray Int Word64
+</span><a href="#local-6989586621679045796"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-108"></span><span>
+</span><span id="line-109"></span><span class="annot"><a href="Data.BitArray.IO.html#freezeBitArray"><span class="hs-identifier hs-type">freezeBitArray</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.BitArray.IO.html#IOBitArray"><span class="hs-identifier hs-type">IOBitArray</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="Data.BitArray.Immutable.html#BitArray"><span class="hs-identifier hs-type">BitArray</span></a></span><span>
+</span><span id="line-110"></span><span id="freezeBitArray"><span class="annot"><span class="annottext">freezeBitArray :: IOBitArray -&gt; IO BitArray
+</span><a href="Data.BitArray.IO.html#freezeBitArray"><span class="hs-identifier hs-var hs-var">freezeBitArray</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.BitArray.IO.html#IOA"><span class="hs-identifier hs-type">IOA</span></a></span><span> </span><span id="local-6989586621679045795"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621679045795"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679045794"><span class="annot"><span class="annottext">t :: Int
+</span><a href="#local-6989586621679045794"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span id="local-6989586621679045793"><span class="annot"><span class="annottext">x :: IOUArray Int Word64
+</span><a href="#local-6989586621679045793"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span>
+</span><span id="line-111"></span><span>  </span><span class="annot"><span class="annottext">IOUArray Int Word64 -&gt; IO (UArray Int Word64)
+forall i (a :: * -&gt; * -&gt; *) e (m :: * -&gt; *) (b :: * -&gt; * -&gt; *).
+(Ix i, MArray a e m, IArray b e) =&gt;
+a i e -&gt; m (b i e)
+</span><span class="hs-identifier hs-var">freeze</span></span><span> </span><span class="annot"><span class="annottext">IOUArray Int Word64
+</span><a href="#local-6989586621679045793"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">IO (UArray Int Word64)
+-&gt; (UArray Int Word64 -&gt; IO BitArray) -&gt; IO BitArray
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679045791"><span class="annot"><span class="annottext">y :: UArray Int Word64
+</span><a href="#local-6989586621679045791"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">BitArray -&gt; IO BitArray
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; UArray Int Word64 -&gt; BitArray
+</span><a href="Data.BitArray.Immutable.html#A"><span class="hs-identifier hs-var">A</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045795"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045794"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">UArray Int Word64
+</span><a href="#local-6989586621679045791"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-112"></span><span>
+</span><span id="line-113"></span><span class="annot"><a href="Data.BitArray.IO.html#unsafeFreezeBitArray"><span class="hs-identifier hs-type">unsafeFreezeBitArray</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.BitArray.IO.html#IOBitArray"><span class="hs-identifier hs-type">IOBitArray</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="Data.BitArray.Immutable.html#BitArray"><span class="hs-identifier hs-type">BitArray</span></a></span><span>
+</span><span id="line-114"></span><span id="unsafeFreezeBitArray"><span class="annot"><span class="annottext">unsafeFreezeBitArray :: IOBitArray -&gt; IO BitArray
+</span><a href="Data.BitArray.IO.html#unsafeFreezeBitArray"><span class="hs-identifier hs-var hs-var">unsafeFreezeBitArray</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.BitArray.IO.html#IOA"><span class="hs-identifier hs-type">IOA</span></a></span><span> </span><span id="local-6989586621679045790"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621679045790"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679045789"><span class="annot"><span class="annottext">t :: Int
+</span><a href="#local-6989586621679045789"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span id="local-6989586621679045788"><span class="annot"><span class="annottext">x :: IOUArray Int Word64
+</span><a href="#local-6989586621679045788"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span>
+</span><span id="line-115"></span><span>  </span><span class="annot"><span class="annottext">IOUArray Int Word64 -&gt; IO (UArray Int Word64)
+forall i (a :: * -&gt; * -&gt; *) e (m :: * -&gt; *) (b :: * -&gt; * -&gt; *).
+(Ix i, MArray a e m, IArray b e) =&gt;
+a i e -&gt; m (b i e)
+</span><span class="hs-identifier hs-var">unsafeFreeze</span></span><span> </span><span class="annot"><span class="annottext">IOUArray Int Word64
+</span><a href="#local-6989586621679045788"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">IO (UArray Int Word64)
+-&gt; (UArray Int Word64 -&gt; IO BitArray) -&gt; IO BitArray
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679045786"><span class="annot"><span class="annottext">y :: UArray Int Word64
+</span><a href="#local-6989586621679045786"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">BitArray -&gt; IO BitArray
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; UArray Int Word64 -&gt; BitArray
+</span><a href="Data.BitArray.Immutable.html#A"><span class="hs-identifier hs-var">A</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045790"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045789"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">UArray Int Word64
+</span><a href="#local-6989586621679045786"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-116"></span><span>
+</span><span id="line-117"></span><span class="hs-comment">--------------------------------------------------------------------------------</span><span>
+</span><span id="line-118"></span><span>
+</span><span id="line-119"></span></pre></body></html>
