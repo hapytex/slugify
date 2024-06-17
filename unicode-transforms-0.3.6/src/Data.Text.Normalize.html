@@ -1,0 +1,60 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- {-# OPTIONS_GHC -funfolding-fun-discount=90 #-}</span><span>
+</span><span id="line-2"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- Module      : Data.Text.Normalize</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- Copyright   : (c) 2016 Harendra Kumar</span><span>
+</span><span id="line-5"></span><span class="hs-comment">--</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- License     : BSD-style</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Maintainer  : harendra.kumar@gmail.com</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Stability   : experimental</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Portability : GHC</span><span>
+</span><span id="line-10"></span><span class="hs-comment">--</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- Unicode normalization for @Text@ data type.</span><span>
+</span><span id="line-12"></span><span class="hs-comment">--</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Data.Text.Normalize</span><span>
+</span><span id="line-14"></span><span>    </span><span class="hs-special">(</span><span>
+</span><span id="line-15"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Normalization Modes</span></span><span>
+</span><span id="line-16"></span><span>      </span><span class="annot"><a href="Data.Unicode.Types.html#NormalizationMode"><span class="hs-identifier">NormalizationMode</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Normalization API</span></span><span>
+</span><span id="line-18"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Text.Normalize.html#normalize"><span class="hs-identifier">normalize</span></a></span><span>
+</span><span id="line-19"></span><span>    </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span>                             </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Text</span></span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><a href="Data.Unicode.Internal.NormalizeStream.html"><span class="hs-identifier">Data.Unicode.Internal.NormalizeStream</span></a></span><span> </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Data.Unicode.Properties.Decompose.html#DecomposeMode"><span class="hs-identifier">DecomposeMode</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span>                                                       </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Unicode.Internal.NormalizeStream.html#stream"><span class="hs-identifier">stream</span></a></span><span>
+</span><span id="line-24"></span><span>                                                       </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Unicode.Internal.NormalizeStream.html#unstream"><span class="hs-identifier">unstream</span></a></span><span>
+</span><span id="line-25"></span><span>                                                       </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Unicode.Internal.NormalizeStream.html#unstreamC"><span class="hs-identifier">unstreamC</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><a href="Data.Unicode.Types.html"><span class="hs-identifier">Data.Unicode.Types</span></a></span><span>                    </span><span class="hs-special">(</span><span class="annot"><a href="Data.Unicode.Types.html#NormalizationMode"><span class="hs-identifier">NormalizationMode</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-27"></span><span>
+</span><span id="line-28"></span><span class="hs-comment">-- | Perform Unicode normalization on @Text@ according to the specified</span><span>
+</span><span id="line-29"></span><span class="hs-comment">-- normalization mode.</span><span>
+</span><span id="line-30"></span><span class="annot"><a href="Data.Text.Normalize.html#normalize"><span class="hs-identifier hs-type">normalize</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Unicode.Types.html#NormalizationMode"><span class="hs-identifier hs-type">NormalizationMode</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-31"></span><span id="normalize"><span class="annot"><span class="annottext">normalize :: NormalizationMode -&gt; Text -&gt; Text
+</span><a href="Data.Text.Normalize.html#normalize"><span class="hs-identifier hs-var hs-var">normalize</span></a></span></span><span> </span><span id="local-6989586621679058157"><span class="annot"><span class="annottext">mode :: NormalizationMode
+</span><a href="#local-6989586621679058157"><span class="hs-identifier hs-var">mode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-32"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">NormalizationMode
+</span><a href="#local-6989586621679058157"><span class="hs-identifier hs-var">mode</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-33"></span><span>      </span><span class="annot"><a href="Data.Unicode.Types.html#NFD"><span class="hs-identifier hs-type">NFD</span></a></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DecomposeMode -&gt; Stream Char -&gt; Text
+</span><a href="Data.Unicode.Internal.NormalizeStream.html#unstream"><span class="hs-identifier hs-var">unstream</span></a></span><span> </span><span class="annot"><span class="annottext">DecomposeMode
+</span><a href="Data.Unicode.Properties.Decompose.html#DecomposeNFD"><span class="hs-identifier hs-var">DecomposeNFD</span></a></span><span class="hs-special">)</span><span>   </span><span class="annot"><span class="annottext">(Stream Char -&gt; Text) -&gt; (Text -&gt; Stream Char) -&gt; Text -&gt; Text
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Stream Char
+</span><a href="Data.Unicode.Internal.NormalizeStream.html#stream"><span class="hs-identifier hs-var">stream</span></a></span><span>
+</span><span id="line-34"></span><span>      </span><span class="annot"><a href="Data.Unicode.Types.html#NFKD"><span class="hs-identifier hs-type">NFKD</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DecomposeMode -&gt; Stream Char -&gt; Text
+</span><a href="Data.Unicode.Internal.NormalizeStream.html#unstream"><span class="hs-identifier hs-var">unstream</span></a></span><span> </span><span class="annot"><span class="annottext">DecomposeMode
+</span><a href="Data.Unicode.Properties.Decompose.html#DecomposeNFKD"><span class="hs-identifier hs-var">DecomposeNFKD</span></a></span><span class="hs-special">)</span><span>  </span><span class="annot"><span class="annottext">(Stream Char -&gt; Text) -&gt; (Text -&gt; Stream Char) -&gt; Text -&gt; Text
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Stream Char
+</span><a href="Data.Unicode.Internal.NormalizeStream.html#stream"><span class="hs-identifier hs-var">stream</span></a></span><span>
+</span><span id="line-35"></span><span>      </span><span class="annot"><a href="Data.Unicode.Types.html#NFC"><span class="hs-identifier hs-type">NFC</span></a></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DecomposeMode -&gt; Stream Char -&gt; Text
+</span><a href="Data.Unicode.Internal.NormalizeStream.html#unstreamC"><span class="hs-identifier hs-var">unstreamC</span></a></span><span> </span><span class="annot"><span class="annottext">DecomposeMode
+</span><a href="Data.Unicode.Properties.Decompose.html#DecomposeNFD"><span class="hs-identifier hs-var">DecomposeNFD</span></a></span><span class="hs-special">)</span><span>  </span><span class="annot"><span class="annottext">(Stream Char -&gt; Text) -&gt; (Text -&gt; Stream Char) -&gt; Text -&gt; Text
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Stream Char
+</span><a href="Data.Unicode.Internal.NormalizeStream.html#stream"><span class="hs-identifier hs-var">stream</span></a></span><span>
+</span><span id="line-36"></span><span>      </span><span class="annot"><a href="Data.Unicode.Types.html#NFKC"><span class="hs-identifier hs-type">NFKC</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DecomposeMode -&gt; Stream Char -&gt; Text
+</span><a href="Data.Unicode.Internal.NormalizeStream.html#unstreamC"><span class="hs-identifier hs-var">unstreamC</span></a></span><span> </span><span class="annot"><span class="annottext">DecomposeMode
+</span><a href="Data.Unicode.Properties.Decompose.html#DecomposeNFKD"><span class="hs-identifier hs-var">DecomposeNFKD</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Stream Char -&gt; Text) -&gt; (Text -&gt; Stream Char) -&gt; Text -&gt; Text
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Stream Char
+</span><a href="Data.Unicode.Internal.NormalizeStream.html#stream"><span class="hs-identifier hs-var">stream</span></a></span><span>
+</span><span id="line-37"></span></pre></body></html>

@@ -1,0 +1,426 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span>
+</span><span id="line-2"></span><span class="hs-comment">-- | Mutable one-dimensional packed bit arrays in the (strict) ST monad.</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Data.BitArray.ST</span><span> </span><span>
+</span><span id="line-5"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Data.BitArray.ST.html#STBitArray"><span class="hs-identifier">STBitArray</span></a></span><span> </span><span>
+</span><span id="line-6"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.BitArray.ST.html#getBitArrayBounds"><span class="hs-identifier">getBitArrayBounds</span></a></span><span>
+</span><span id="line-7"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.BitArray.ST.html#newBitArray"><span class="hs-identifier">newBitArray</span></a></span><span>
+</span><span id="line-8"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.BitArray.ST.html#readBit"><span class="hs-identifier">readBit</span></a></span><span>
+</span><span id="line-9"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.BitArray.ST.html#writeBit"><span class="hs-identifier">writeBit</span></a></span><span>
+</span><span id="line-10"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.BitArray.ST.html#flipBit"><span class="hs-identifier">flipBit</span></a></span><span>
+</span><span id="line-11"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.BitArray.ST.html#unsafeReadBit"><span class="hs-identifier">unsafeReadBit</span></a></span><span>
+</span><span id="line-12"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.BitArray.ST.html#unsafeWriteBit"><span class="hs-identifier">unsafeWriteBit</span></a></span><span>
+</span><span id="line-13"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.BitArray.ST.html#unsafeFlipBit"><span class="hs-identifier">unsafeFlipBit</span></a></span><span>
+</span><span id="line-14"></span><span>  </span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.BitArray.ST.html#thawBitArray"><span class="hs-identifier">thawBitArray</span></a></span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.BitArray.ST.html#unsafeThawBitArray"><span class="hs-identifier">unsafeThawBitArray</span></a></span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.BitArray.ST.html#freezeBitArray"><span class="hs-identifier">freezeBitArray</span></a></span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.BitArray.ST.html#unsafeFreezeBitArray"><span class="hs-identifier">unsafeFreezeBitArray</span></a></span><span>  </span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-21"></span><span>
+</span><span id="line-22"></span><span class="hs-comment">--------------------------------------------------------------------------------</span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.ST</span></span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Word</span></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Bits</span></span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Array.ST</span></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Array.Unsafe</span></span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.BitArray.Immutable.html"><span class="hs-identifier">Data.BitArray.Immutable</span></a></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-comment">--------------------------------------------------------------------------------</span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">data</span><span> </span><span id="STBitArray"><span class="annot"><a href="Data.BitArray.ST.html#STBitArray"><span class="hs-identifier hs-var">STBitArray</span></a></span></span><span> </span><span id="local-6989586621679046062"><span class="annot"><a href="#local-6989586621679046062"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="STA"><span class="annot"><a href="Data.BitArray.ST.html#STA"><span class="hs-identifier hs-var">STA</span></a></span></span><span> </span><span>
+</span><span id="line-37"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="_first"><span class="annot"><span class="annottext">STBitArray s -&gt; Int
+</span><a href="Data.BitArray.ST.html#_first"><span class="hs-identifier hs-var hs-var">_first</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-pragma">{-# UNPACK</span><span> </span><span class="hs-pragma">#-}</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span>
+</span><span id="line-38"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="_last"><span class="annot"><span class="annottext">STBitArray s -&gt; Int
+</span><a href="Data.BitArray.ST.html#_last"><span class="hs-identifier hs-var hs-var">_last</span></a></span></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-pragma">{-# UNPACK</span><span> </span><span class="hs-pragma">#-}</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span>
+</span><span id="line-39"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="_words"><span class="annot"><span class="annottext">STBitArray s -&gt; STUArray s Int Word64
+</span><a href="Data.BitArray.ST.html#_words"><span class="hs-identifier hs-var hs-var">_words</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-pragma">{-# UNPACK</span><span> </span><span class="hs-pragma">#-}</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">STUArray</span></span><span> </span><span class="annot"><a href="#local-6989586621679046062"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word64</span></span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-41"></span><span>  </span><span>
+</span><span id="line-42"></span><span class="hs-comment">--------------------------------------------------------------------------------</span><span>
+</span><span id="line-43"></span><span>
+</span><span id="line-44"></span><span id="local-6989586621679046008"><span class="annot"><a href="Data.BitArray.ST.html#getBitArrayBounds"><span class="hs-identifier hs-type">getBitArrayBounds</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.BitArray.ST.html#STBitArray"><span class="hs-identifier hs-type">STBitArray</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679046008"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ST</span></span><span> </span><span class="annot"><a href="#local-6989586621679046008"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">,</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span></span><span>
+</span><span id="line-45"></span><span id="getBitArrayBounds"><span class="annot"><span class="annottext">getBitArrayBounds :: STBitArray s -&gt; ST s (Int, Int)
+</span><a href="Data.BitArray.ST.html#getBitArrayBounds"><span class="hs-identifier hs-var hs-var">getBitArrayBounds</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.BitArray.ST.html#STA"><span class="hs-identifier hs-type">STA</span></a></span><span> </span><span id="local-6989586621679046007"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621679046007"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679046006"><span class="annot"><span class="annottext">t :: Int
+</span><a href="#local-6989586621679046006"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Int, Int) -&gt; ST s (Int, Int)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679046007"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679046006"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span id="local-6989586621679046005"><span class="annot"><a href="Data.BitArray.ST.html#newBitArray"><span class="hs-identifier hs-type">newBitArray</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">,</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ST</span></span><span> </span><span class="annot"><a href="#local-6989586621679046005"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.BitArray.ST.html#STBitArray"><span class="hs-identifier hs-type">STBitArray</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679046005"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-48"></span><span id="newBitArray"><span class="annot"><span class="annottext">newBitArray :: (Int, Int) -&gt; Bool -&gt; ST s (STBitArray s)
+</span><a href="Data.BitArray.ST.html#newBitArray"><span class="hs-identifier hs-var hs-var">newBitArray</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679046004"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621679046004"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679046003"><span class="annot"><span class="annottext">t :: Int
+</span><a href="#local-6989586621679046003"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679046002"><span class="annot"><span class="annottext">b :: Bool
+</span><a href="#local-6989586621679046002"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679046003"><span class="hs-identifier hs-var">t</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679046004"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-49"></span><span>  </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; ST s (STBitArray s)
+forall a. HasCallStack =&gt; [Char] -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="hs-string">&quot;STBitArray/newBitArray: empty range&quot;</span></span><span>
+</span><span id="line-50"></span><span>  </span><span class="hs-keyword">else</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-51"></span><span>    </span><span id="local-6989586621679045999"><span class="annot"><span class="annottext">STUArray s Int Word64
+</span><a href="#local-6989586621679045999"><span class="hs-identifier hs-var">words</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Int, Int) -&gt; Word64 -&gt; ST s (STUArray s Int Word64)
+forall (a :: * -&gt; * -&gt; *) e (m :: * -&gt; *) i.
+(MArray a e m, Ix i) =&gt;
+(i, i) -&gt; e -&gt; m (a i e)
+</span><span class="hs-identifier hs-var">newArray</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045997"><span class="hs-identifier hs-var">k</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span class="annot"><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679045996"><span class="hs-identifier hs-var">w</span></a></span><span>
+</span><span id="line-52"></span><span>    </span><span class="annot"><span class="annottext">STBitArray s -&gt; ST s (STBitArray s)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; STUArray s Int Word64 -&gt; STBitArray s
+forall s. Int -&gt; Int -&gt; STUArray s Int Word64 -&gt; STBitArray s
+</span><a href="Data.BitArray.ST.html#STA"><span class="hs-identifier hs-var">STA</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679046004"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679046003"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">STUArray s Int Word64
+</span><a href="#local-6989586621679045999"><span class="hs-identifier hs-var">words</span></a></span><span class="hs-special">)</span><span>    </span><span>
+</span><span id="line-53"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-54"></span><span>    </span><span id="local-6989586621679045997"><span class="annot"><span class="annottext">k :: Int
+</span><a href="#local-6989586621679045997"><span class="hs-identifier hs-var hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679046003"><span class="hs-identifier hs-var">t</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679046004"><span class="hs-identifier hs-var">s</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span class="annot"><span class="hs-number">64</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Bits a =&gt; a -&gt; Int -&gt; a
+</span><span class="hs-operator hs-var">`shiftR`</span></span><span> </span><span class="annot"><span class="hs-number">6</span></span><span>
+</span><span id="line-55"></span><span>    </span><span id="local-6989586621679045996"><span class="annot"><span class="annottext">w :: Word64
+</span><a href="#local-6989586621679045996"><span class="hs-identifier hs-var hs-var">w</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679046002"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-56"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">False</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-number">0</span></span><span>
+</span><span id="line-57"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">True</span></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-number">0xFFFFFFFFFFFFFFFF</span></span><span>
+</span><span id="line-58"></span><span class="hs-comment">--               fedcba9876543210       </span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span id="local-6989586621679045993"><span class="annot"><a href="Data.BitArray.ST.html#readBit"><span class="hs-identifier hs-type">readBit</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.BitArray.ST.html#STBitArray"><span class="hs-identifier hs-type">STBitArray</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679045993"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ST</span></span><span> </span><span class="annot"><a href="#local-6989586621679045993"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span></span><span>
+</span><span id="line-61"></span><span id="readBit"><span class="annot"><span class="annottext">readBit :: STBitArray s -&gt; Int -&gt; ST s Bool
+</span><a href="Data.BitArray.ST.html#readBit"><span class="hs-identifier hs-var hs-var">readBit</span></a></span></span><span> </span><span id="local-6989586621679045992"><span class="annot"><span class="annottext">ar :: STBitArray s
+</span><a href="#local-6989586621679045992"><span class="hs-identifier hs-var">ar</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Data.BitArray.ST.html#STA"><span class="hs-identifier hs-type">STA</span></a></span><span> </span><span id="local-6989586621679045991"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621679045991"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679045990"><span class="annot"><span class="annottext">t :: Int
+</span><a href="#local-6989586621679045990"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span id="local-6989586621679045989"><span class="annot"><span class="annottext">j :: Int
+</span><a href="#local-6989586621679045989"><span class="hs-identifier hs-var">j</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045989"><span class="hs-identifier hs-var">j</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045991"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045989"><span class="hs-identifier hs-var">j</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;</span></span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045990"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span>
+</span><span id="line-62"></span><span>  </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; ST s Bool
+forall a. HasCallStack =&gt; [Char] -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="hs-string">&quot;STBitArray/readBit: index out of range&quot;</span></span><span>
+</span><span id="line-63"></span><span>  </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">STBitArray s -&gt; Int -&gt; ST s Bool
+forall s. STBitArray s -&gt; Int -&gt; ST s Bool
+</span><a href="Data.BitArray.ST.html#unsafeReadBit"><span class="hs-identifier hs-var">unsafeReadBit</span></a></span><span> </span><span class="annot"><span class="annottext">STBitArray s
+</span><a href="#local-6989586621679045992"><span class="hs-identifier hs-var">ar</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045989"><span class="hs-identifier hs-var">j</span></a></span><span> </span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span id="local-6989586621679046058"><span class="annot"><a href="Data.BitArray.ST.html#unsafeReadBit"><span class="hs-identifier hs-type">unsafeReadBit</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.BitArray.ST.html#STBitArray"><span class="hs-identifier hs-type">STBitArray</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679046058"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ST</span></span><span> </span><span class="annot"><a href="#local-6989586621679046058"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span></span><span>
+</span><span id="line-66"></span><span id="unsafeReadBit"><span class="annot"><span class="annottext">unsafeReadBit :: STBitArray s -&gt; Int -&gt; ST s Bool
+</span><a href="Data.BitArray.ST.html#unsafeReadBit"><span class="hs-identifier hs-var hs-var">unsafeReadBit</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.BitArray.ST.html#STA"><span class="hs-identifier hs-type">STA</span></a></span><span> </span><span id="local-6989586621679045986"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621679045986"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679045985"><span class="annot"><span class="annottext">t :: Int
+</span><a href="#local-6989586621679045985"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span id="local-6989586621679045984"><span class="annot"><span class="annottext">a :: STUArray s Int Word64
+</span><a href="#local-6989586621679045984"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679045983"><span class="annot"><span class="annottext">j :: Int
+</span><a href="#local-6989586621679045983"><span class="hs-identifier hs-var">j</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-67"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679045982"><span class="annot"><span class="annottext">k :: Int
+</span><a href="#local-6989586621679045982"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679045981"><span class="annot"><span class="annottext">l :: Int
+</span><a href="#local-6989586621679045981"><span class="hs-identifier hs-var">l</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; (Int, Int)
+</span><a href="Data.BitArray.Immutable.html#ind"><span class="hs-identifier hs-var">ind</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045983"><span class="hs-identifier hs-var">j</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045986"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-68"></span><span>  </span><span id="local-6989586621679045979"><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679045979"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">STUArray s Int Word64 -&gt; Int -&gt; ST s Word64
+forall (a :: * -&gt; * -&gt; *) e (m :: * -&gt; *) i.
+(MArray a e m, Ix i) =&gt;
+a i e -&gt; i -&gt; m e
+</span><span class="hs-identifier hs-var">readArray</span></span><span> </span><span class="annot"><span class="annottext">STUArray s Int Word64
+</span><a href="#local-6989586621679045984"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045982"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-69"></span><span>  </span><span class="annot"><span class="annottext">Bool -&gt; ST s Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679045979"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Int -&gt; Bool
+forall a. Bits a =&gt; a -&gt; Int -&gt; Bool
+</span><span class="hs-operator hs-var">`testBit`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045981"><span class="hs-identifier hs-var">l</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span id="local-6989586621679045976"><span class="annot"><a href="Data.BitArray.ST.html#writeBit"><span class="hs-identifier hs-type">writeBit</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.BitArray.ST.html#STBitArray"><span class="hs-identifier hs-type">STBitArray</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679045976"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ST</span></span><span> </span><span class="annot"><a href="#local-6989586621679045976"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-72"></span><span id="writeBit"><span class="annot"><span class="annottext">writeBit :: STBitArray s -&gt; Int -&gt; Bool -&gt; ST s ()
+</span><a href="Data.BitArray.ST.html#writeBit"><span class="hs-identifier hs-var hs-var">writeBit</span></a></span></span><span> </span><span id="local-6989586621679045975"><span class="annot"><span class="annottext">ar :: STBitArray s
+</span><a href="#local-6989586621679045975"><span class="hs-identifier hs-var">ar</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Data.BitArray.ST.html#STA"><span class="hs-identifier hs-type">STA</span></a></span><span> </span><span id="local-6989586621679045974"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621679045974"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679045973"><span class="annot"><span class="annottext">t :: Int
+</span><a href="#local-6989586621679045973"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span id="local-6989586621679045972"><span class="annot"><span class="annottext">j :: Int
+</span><a href="#local-6989586621679045972"><span class="hs-identifier hs-var">j</span></a></span></span><span> </span><span id="local-6989586621679045971"><span class="annot"><span class="annottext">b :: Bool
+</span><a href="#local-6989586621679045971"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045972"><span class="hs-identifier hs-var">j</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045974"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045972"><span class="hs-identifier hs-var">j</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;</span></span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045973"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span>
+</span><span id="line-73"></span><span>  </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; ST s ()
+forall a. HasCallStack =&gt; [Char] -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="hs-string">&quot;STBitArray/writeBit: index out of range&quot;</span></span><span>
+</span><span id="line-74"></span><span>  </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">STBitArray s -&gt; Int -&gt; Bool -&gt; ST s ()
+forall s. STBitArray s -&gt; Int -&gt; Bool -&gt; ST s ()
+</span><a href="Data.BitArray.ST.html#unsafeWriteBit"><span class="hs-identifier hs-var">unsafeWriteBit</span></a></span><span> </span><span class="annot"><span class="annottext">STBitArray s
+</span><a href="#local-6989586621679045975"><span class="hs-identifier hs-var">ar</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045972"><span class="hs-identifier hs-var">j</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679045971"><span class="hs-identifier hs-var">b</span></a></span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span id="local-6989586621679046051"><span class="annot"><a href="Data.BitArray.ST.html#unsafeWriteBit"><span class="hs-identifier hs-type">unsafeWriteBit</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.BitArray.ST.html#STBitArray"><span class="hs-identifier hs-type">STBitArray</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679046051"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ST</span></span><span> </span><span class="annot"><a href="#local-6989586621679046051"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-77"></span><span id="unsafeWriteBit"><span class="annot"><span class="annottext">unsafeWriteBit :: STBitArray s -&gt; Int -&gt; Bool -&gt; ST s ()
+</span><a href="Data.BitArray.ST.html#unsafeWriteBit"><span class="hs-identifier hs-var hs-var">unsafeWriteBit</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.BitArray.ST.html#STA"><span class="hs-identifier hs-type">STA</span></a></span><span> </span><span id="local-6989586621679045970"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621679045970"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679045969"><span class="annot"><span class="annottext">t :: Int
+</span><a href="#local-6989586621679045969"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span id="local-6989586621679045968"><span class="annot"><span class="annottext">a :: STUArray s Int Word64
+</span><a href="#local-6989586621679045968"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679045967"><span class="annot"><span class="annottext">j :: Int
+</span><a href="#local-6989586621679045967"><span class="hs-identifier hs-var">j</span></a></span></span><span> </span><span id="local-6989586621679045966"><span class="annot"><span class="annottext">b :: Bool
+</span><a href="#local-6989586621679045966"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-78"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679045965"><span class="annot"><span class="annottext">k :: Int
+</span><a href="#local-6989586621679045965"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679045964"><span class="annot"><span class="annottext">l :: Int
+</span><a href="#local-6989586621679045964"><span class="hs-identifier hs-var">l</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; (Int, Int)
+</span><a href="Data.BitArray.Immutable.html#ind"><span class="hs-identifier hs-var">ind</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045967"><span class="hs-identifier hs-var">j</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045970"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-79"></span><span>  </span><span id="local-6989586621679045963"><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679045963"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">STUArray s Int Word64 -&gt; Int -&gt; ST s Word64
+forall (a :: * -&gt; * -&gt; *) e (m :: * -&gt; *) i.
+(MArray a e m, Ix i) =&gt;
+a i e -&gt; i -&gt; m e
+</span><span class="hs-identifier hs-var">readArray</span></span><span> </span><span class="annot"><span class="annottext">STUArray s Int Word64
+</span><a href="#local-6989586621679045968"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045965"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-80"></span><span>  </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679045966"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span>
+</span><span id="line-81"></span><span>    </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">STUArray s Int Word64 -&gt; Int -&gt; Word64 -&gt; ST s ()
+forall (a :: * -&gt; * -&gt; *) e (m :: * -&gt; *) i.
+(MArray a e m, Ix i) =&gt;
+a i e -&gt; i -&gt; e -&gt; m ()
+</span><span class="hs-identifier hs-var">writeArray</span></span><span> </span><span class="annot"><span class="annottext">STUArray s Int Word64
+</span><a href="#local-6989586621679045968"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045965"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679045963"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Int -&gt; Word64
+forall a. Bits a =&gt; a -&gt; Int -&gt; a
+</span><span class="hs-operator hs-var">`setBit`</span></span><span>   </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045964"><span class="hs-identifier hs-var">l</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-82"></span><span>    </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">STUArray s Int Word64 -&gt; Int -&gt; Word64 -&gt; ST s ()
+forall (a :: * -&gt; * -&gt; *) e (m :: * -&gt; *) i.
+(MArray a e m, Ix i) =&gt;
+a i e -&gt; i -&gt; e -&gt; m ()
+</span><span class="hs-identifier hs-var">writeArray</span></span><span> </span><span class="annot"><span class="annottext">STUArray s Int Word64
+</span><a href="#local-6989586621679045968"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045965"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679045963"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Int -&gt; Word64
+forall a. Bits a =&gt; a -&gt; Int -&gt; a
+</span><span class="hs-operator hs-var">`clearBit`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045964"><span class="hs-identifier hs-var">l</span></a></span><span class="hs-special">)</span><span>  </span><span>
+</span><span id="line-83"></span><span>  </span><span class="annot"><span class="annottext">() -&gt; ST s ()
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-84"></span><span>
+</span><span id="line-85"></span><span class="hs-comment">-- | flips the bit and returns the /old/ value</span><span>
+</span><span id="line-86"></span><span id="local-6989586621679045959"><span class="annot"><a href="Data.BitArray.ST.html#flipBit"><span class="hs-identifier hs-type">flipBit</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.BitArray.ST.html#STBitArray"><span class="hs-identifier hs-type">STBitArray</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679045959"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ST</span></span><span> </span><span class="annot"><a href="#local-6989586621679045959"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span></span><span>
+</span><span id="line-87"></span><span id="flipBit"><span class="annot"><span class="annottext">flipBit :: STBitArray s -&gt; Int -&gt; ST s Bool
+</span><a href="Data.BitArray.ST.html#flipBit"><span class="hs-identifier hs-var hs-var">flipBit</span></a></span></span><span> </span><span id="local-6989586621679045958"><span class="annot"><span class="annottext">ar :: STBitArray s
+</span><a href="#local-6989586621679045958"><span class="hs-identifier hs-var">ar</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Data.BitArray.ST.html#STA"><span class="hs-identifier hs-type">STA</span></a></span><span> </span><span id="local-6989586621679045957"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621679045957"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679045956"><span class="annot"><span class="annottext">t :: Int
+</span><a href="#local-6989586621679045956"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span id="local-6989586621679045955"><span class="annot"><span class="annottext">j :: Int
+</span><a href="#local-6989586621679045955"><span class="hs-identifier hs-var">j</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045955"><span class="hs-identifier hs-var">j</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045957"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045955"><span class="hs-identifier hs-var">j</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;</span></span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045956"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span>
+</span><span id="line-88"></span><span>  </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; ST s Bool
+forall a. HasCallStack =&gt; [Char] -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="hs-string">&quot;STBitArray/flipBit: index out of range&quot;</span></span><span>
+</span><span id="line-89"></span><span>  </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">STBitArray s -&gt; Int -&gt; ST s Bool
+forall s. STBitArray s -&gt; Int -&gt; ST s Bool
+</span><a href="Data.BitArray.ST.html#unsafeFlipBit"><span class="hs-identifier hs-var">unsafeFlipBit</span></a></span><span> </span><span class="annot"><span class="annottext">STBitArray s
+</span><a href="#local-6989586621679045958"><span class="hs-identifier hs-var">ar</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045955"><span class="hs-identifier hs-var">j</span></a></span><span>
+</span><span id="line-90"></span><span>
+</span><span id="line-91"></span><span id="local-6989586621679045954"><span class="annot"><a href="Data.BitArray.ST.html#unsafeFlipBit"><span class="hs-identifier hs-type">unsafeFlipBit</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.BitArray.ST.html#STBitArray"><span class="hs-identifier hs-type">STBitArray</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679045954"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ST</span></span><span> </span><span class="annot"><a href="#local-6989586621679045954"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span></span><span>
+</span><span id="line-92"></span><span id="unsafeFlipBit"><span class="annot"><span class="annottext">unsafeFlipBit :: STBitArray s -&gt; Int -&gt; ST s Bool
+</span><a href="Data.BitArray.ST.html#unsafeFlipBit"><span class="hs-identifier hs-var hs-var">unsafeFlipBit</span></a></span></span><span> </span><span id="local-6989586621679045953"><span class="annot"><span class="annottext">ar :: STBitArray s
+</span><a href="#local-6989586621679045953"><span class="hs-identifier hs-var">ar</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Data.BitArray.ST.html#STA"><span class="hs-identifier hs-type">STA</span></a></span><span> </span><span id="local-6989586621679045952"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621679045952"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679045951"><span class="annot"><span class="annottext">t :: Int
+</span><a href="#local-6989586621679045951"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span id="local-6989586621679045950"><span class="annot"><span class="annottext">a :: STUArray s Int Word64
+</span><a href="#local-6989586621679045950"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679045949"><span class="annot"><span class="annottext">j :: Int
+</span><a href="#local-6989586621679045949"><span class="hs-identifier hs-var">j</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-93"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679045948"><span class="annot"><span class="annottext">k :: Int
+</span><a href="#local-6989586621679045948"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621679045947"><span class="annot"><span class="annottext">l :: Int
+</span><a href="#local-6989586621679045947"><span class="hs-identifier hs-var">l</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; (Int, Int)
+</span><a href="Data.BitArray.Immutable.html#ind"><span class="hs-identifier hs-var">ind</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045949"><span class="hs-identifier hs-var">j</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045952"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-94"></span><span>  </span><span id="local-6989586621679045946"><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679045946"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">STUArray s Int Word64 -&gt; Int -&gt; ST s Word64
+forall (a :: * -&gt; * -&gt; *) e (m :: * -&gt; *) i.
+(MArray a e m, Ix i) =&gt;
+a i e -&gt; i -&gt; m e
+</span><span class="hs-identifier hs-var">readArray</span></span><span> </span><span class="annot"><span class="annottext">STUArray s Int Word64
+</span><a href="#local-6989586621679045950"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045948"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-95"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679045945"><span class="annot"><span class="annottext">b :: Bool
+</span><a href="#local-6989586621679045945"><span class="hs-identifier hs-var hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679045946"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Int -&gt; Bool
+forall a. Bits a =&gt; a -&gt; Int -&gt; Bool
+</span><span class="hs-operator hs-var">`testBit`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045947"><span class="hs-identifier hs-var">l</span></a></span><span>
+</span><span id="line-96"></span><span>  </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679045945"><span class="hs-identifier hs-var">b</span></a></span><span>
+</span><span id="line-97"></span><span>    </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">STUArray s Int Word64 -&gt; Int -&gt; Word64 -&gt; ST s ()
+forall (a :: * -&gt; * -&gt; *) e (m :: * -&gt; *) i.
+(MArray a e m, Ix i) =&gt;
+a i e -&gt; i -&gt; e -&gt; m ()
+</span><span class="hs-identifier hs-var">writeArray</span></span><span> </span><span class="annot"><span class="annottext">STUArray s Int Word64
+</span><a href="#local-6989586621679045950"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045948"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679045946"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Int -&gt; Word64
+forall a. Bits a =&gt; a -&gt; Int -&gt; a
+</span><span class="hs-operator hs-var">`clearBit`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045947"><span class="hs-identifier hs-var">l</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-98"></span><span>    </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">STUArray s Int Word64 -&gt; Int -&gt; Word64 -&gt; ST s ()
+forall (a :: * -&gt; * -&gt; *) e (m :: * -&gt; *) i.
+(MArray a e m, Ix i) =&gt;
+a i e -&gt; i -&gt; e -&gt; m ()
+</span><span class="hs-identifier hs-var">writeArray</span></span><span> </span><span class="annot"><span class="annottext">STUArray s Int Word64
+</span><a href="#local-6989586621679045950"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045948"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621679045946"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Int -&gt; Word64
+forall a. Bits a =&gt; a -&gt; Int -&gt; a
+</span><span class="hs-operator hs-var">`setBit`</span></span><span>   </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045947"><span class="hs-identifier hs-var">l</span></a></span><span class="hs-special">)</span><span>  </span><span>
+</span><span id="line-99"></span><span>  </span><span class="annot"><span class="annottext">Bool -&gt; ST s Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679045945"><span class="hs-identifier hs-var">b</span></a></span><span>
+</span><span id="line-100"></span><span>    </span><span>
+</span><span id="line-101"></span><span class="hs-comment">--------------------------------------------------------------------------------</span><span>
+</span><span id="line-102"></span><span>    </span><span>
+</span><span id="line-103"></span><span id="local-6989586621679045944"><span class="annot"><a href="Data.BitArray.ST.html#thawBitArray"><span class="hs-identifier hs-type">thawBitArray</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.BitArray.Immutable.html#BitArray"><span class="hs-identifier hs-type">BitArray</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ST</span></span><span> </span><span class="annot"><a href="#local-6989586621679045944"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.BitArray.ST.html#STBitArray"><span class="hs-identifier hs-type">STBitArray</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679045944"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-104"></span><span id="thawBitArray"><span class="annot"><span class="annottext">thawBitArray :: BitArray -&gt; ST s (STBitArray s)
+</span><a href="Data.BitArray.ST.html#thawBitArray"><span class="hs-identifier hs-var hs-var">thawBitArray</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.BitArray.Immutable.html#A"><span class="hs-identifier hs-type">A</span></a></span><span> </span><span id="local-6989586621679045942"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621679045942"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679045941"><span class="annot"><span class="annottext">t :: Int
+</span><a href="#local-6989586621679045941"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span id="local-6989586621679045940"><span class="annot"><span class="annottext">x :: UArray Int Word64
+</span><a href="#local-6989586621679045940"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span>
+</span><span id="line-105"></span><span>  </span><span class="annot"><span class="annottext">UArray Int Word64 -&gt; ST s (STUArray s Int Word64)
+forall i (a :: * -&gt; * -&gt; *) e (b :: * -&gt; * -&gt; *) (m :: * -&gt; *).
+(Ix i, IArray a e, MArray b e m) =&gt;
+a i e -&gt; m (b i e)
+</span><span class="hs-identifier hs-var">thaw</span></span><span> </span><span class="annot"><span class="annottext">UArray Int Word64
+</span><a href="#local-6989586621679045940"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">ST s (STUArray s Int Word64)
+-&gt; (STUArray s Int Word64 -&gt; ST s (STBitArray s))
+-&gt; ST s (STBitArray s)
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679045938"><span class="annot"><span class="annottext">y :: STUArray s Int Word64
+</span><a href="#local-6989586621679045938"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">STBitArray s -&gt; ST s (STBitArray s)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; STUArray s Int Word64 -&gt; STBitArray s
+forall s. Int -&gt; Int -&gt; STUArray s Int Word64 -&gt; STBitArray s
+</span><a href="Data.BitArray.ST.html#STA"><span class="hs-identifier hs-var">STA</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045942"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045941"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">STUArray s Int Word64
+</span><a href="#local-6989586621679045938"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-106"></span><span>
+</span><span id="line-107"></span><span id="local-6989586621679045937"><span class="annot"><a href="Data.BitArray.ST.html#unsafeThawBitArray"><span class="hs-identifier hs-type">unsafeThawBitArray</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.BitArray.Immutable.html#BitArray"><span class="hs-identifier hs-type">BitArray</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ST</span></span><span> </span><span class="annot"><a href="#local-6989586621679045937"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.BitArray.ST.html#STBitArray"><span class="hs-identifier hs-type">STBitArray</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679045937"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-108"></span><span id="unsafeThawBitArray"><span class="annot"><span class="annottext">unsafeThawBitArray :: BitArray -&gt; ST s (STBitArray s)
+</span><a href="Data.BitArray.ST.html#unsafeThawBitArray"><span class="hs-identifier hs-var hs-var">unsafeThawBitArray</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.BitArray.Immutable.html#A"><span class="hs-identifier hs-type">A</span></a></span><span> </span><span id="local-6989586621679045936"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621679045936"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679045935"><span class="annot"><span class="annottext">t :: Int
+</span><a href="#local-6989586621679045935"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span id="local-6989586621679045934"><span class="annot"><span class="annottext">x :: UArray Int Word64
+</span><a href="#local-6989586621679045934"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span>
+</span><span id="line-109"></span><span>  </span><span class="annot"><span class="annottext">UArray Int Word64 -&gt; ST s (STUArray s Int Word64)
+forall i (a :: * -&gt; * -&gt; *) e (b :: * -&gt; * -&gt; *) (m :: * -&gt; *).
+(Ix i, IArray a e, MArray b e m) =&gt;
+a i e -&gt; m (b i e)
+</span><span class="hs-identifier hs-var">unsafeThaw</span></span><span> </span><span class="annot"><span class="annottext">UArray Int Word64
+</span><a href="#local-6989586621679045934"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">ST s (STUArray s Int Word64)
+-&gt; (STUArray s Int Word64 -&gt; ST s (STBitArray s))
+-&gt; ST s (STBitArray s)
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679045932"><span class="annot"><span class="annottext">y :: STUArray s Int Word64
+</span><a href="#local-6989586621679045932"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">STBitArray s -&gt; ST s (STBitArray s)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; STUArray s Int Word64 -&gt; STBitArray s
+forall s. Int -&gt; Int -&gt; STUArray s Int Word64 -&gt; STBitArray s
+</span><a href="Data.BitArray.ST.html#STA"><span class="hs-identifier hs-var">STA</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045936"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045935"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">STUArray s Int Word64
+</span><a href="#local-6989586621679045932"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-110"></span><span>
+</span><span id="line-111"></span><span id="local-6989586621679045931"><span class="annot"><a href="Data.BitArray.ST.html#freezeBitArray"><span class="hs-identifier hs-type">freezeBitArray</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.BitArray.ST.html#STBitArray"><span class="hs-identifier hs-type">STBitArray</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679045931"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ST</span></span><span> </span><span class="annot"><a href="#local-6989586621679045931"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="Data.BitArray.Immutable.html#BitArray"><span class="hs-identifier hs-type">BitArray</span></a></span></span><span>
+</span><span id="line-112"></span><span id="freezeBitArray"><span class="annot"><span class="annottext">freezeBitArray :: STBitArray s -&gt; ST s BitArray
+</span><a href="Data.BitArray.ST.html#freezeBitArray"><span class="hs-identifier hs-var hs-var">freezeBitArray</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.BitArray.ST.html#STA"><span class="hs-identifier hs-type">STA</span></a></span><span> </span><span id="local-6989586621679045930"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621679045930"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679045929"><span class="annot"><span class="annottext">t :: Int
+</span><a href="#local-6989586621679045929"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span id="local-6989586621679045928"><span class="annot"><span class="annottext">x :: STUArray s Int Word64
+</span><a href="#local-6989586621679045928"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span>
+</span><span id="line-113"></span><span>  </span><span class="annot"><span class="annottext">STUArray s Int Word64 -&gt; ST s (UArray Int Word64)
+forall i (a :: * -&gt; * -&gt; *) e (m :: * -&gt; *) (b :: * -&gt; * -&gt; *).
+(Ix i, MArray a e m, IArray b e) =&gt;
+a i e -&gt; m (b i e)
+</span><span class="hs-identifier hs-var">freeze</span></span><span> </span><span class="annot"><span class="annottext">STUArray s Int Word64
+</span><a href="#local-6989586621679045928"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">ST s (UArray Int Word64)
+-&gt; (UArray Int Word64 -&gt; ST s BitArray) -&gt; ST s BitArray
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679045926"><span class="annot"><span class="annottext">y :: UArray Int Word64
+</span><a href="#local-6989586621679045926"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">BitArray -&gt; ST s BitArray
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; UArray Int Word64 -&gt; BitArray
+</span><a href="Data.BitArray.Immutable.html#A"><span class="hs-identifier hs-var">A</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045930"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045929"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">UArray Int Word64
+</span><a href="#local-6989586621679045926"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-114"></span><span>
+</span><span id="line-115"></span><span id="local-6989586621679045925"><span class="annot"><a href="Data.BitArray.ST.html#unsafeFreezeBitArray"><span class="hs-identifier hs-type">unsafeFreezeBitArray</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.BitArray.ST.html#STBitArray"><span class="hs-identifier hs-type">STBitArray</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679045925"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ST</span></span><span> </span><span class="annot"><a href="#local-6989586621679045925"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="Data.BitArray.Immutable.html#BitArray"><span class="hs-identifier hs-type">BitArray</span></a></span></span><span>
+</span><span id="line-116"></span><span id="unsafeFreezeBitArray"><span class="annot"><span class="annottext">unsafeFreezeBitArray :: STBitArray s -&gt; ST s BitArray
+</span><a href="Data.BitArray.ST.html#unsafeFreezeBitArray"><span class="hs-identifier hs-var hs-var">unsafeFreezeBitArray</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.BitArray.ST.html#STA"><span class="hs-identifier hs-type">STA</span></a></span><span> </span><span id="local-6989586621679045924"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621679045924"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621679045923"><span class="annot"><span class="annottext">t :: Int
+</span><a href="#local-6989586621679045923"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span id="local-6989586621679045922"><span class="annot"><span class="annottext">x :: STUArray s Int Word64
+</span><a href="#local-6989586621679045922"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span>
+</span><span id="line-117"></span><span>  </span><span class="annot"><span class="annottext">STUArray s Int Word64 -&gt; ST s (UArray Int Word64)
+forall i (a :: * -&gt; * -&gt; *) e (m :: * -&gt; *) (b :: * -&gt; * -&gt; *).
+(Ix i, MArray a e m, IArray b e) =&gt;
+a i e -&gt; m (b i e)
+</span><span class="hs-identifier hs-var">unsafeFreeze</span></span><span> </span><span class="annot"><span class="annottext">STUArray s Int Word64
+</span><a href="#local-6989586621679045922"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">ST s (UArray Int Word64)
+-&gt; (UArray Int Word64 -&gt; ST s BitArray) -&gt; ST s BitArray
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679045920"><span class="annot"><span class="annottext">y :: UArray Int Word64
+</span><a href="#local-6989586621679045920"><span class="hs-identifier hs-var">y</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">BitArray -&gt; ST s BitArray
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; UArray Int Word64 -&gt; BitArray
+</span><a href="Data.BitArray.Immutable.html#A"><span class="hs-identifier hs-var">A</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045924"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679045923"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">UArray Int Word64
+</span><a href="#local-6989586621679045920"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-118"></span><span>
+</span><span id="line-119"></span><span class="hs-comment">--------------------------------------------------------------------------------</span><span>
+</span><span id="line-120"></span></pre></body></html>
