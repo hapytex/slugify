@@ -1,5 +1,5 @@
 name:                slugify
-version:             0.1.0.1
+version:             0.1.0.2
 synopsis: Convert text into slugs.
 description: Convert a 'Text' object into a visually pleasant URL component.
 homepage:            https://github.com/hapytex/slugify#readme

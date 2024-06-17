@@ -48,6 +48,7 @@ isWordSeparator '\x1d' = True
 isWordSeparator '\x1f' = True
 isWordSeparator '\x1e' = True
 isWordSeparator '\n' = True
+isWordSeparator '_' = True
 isWordSeparator c = case generalCategory c of
     LineSeparator -> True         -- Zl
     ParagraphSeparator -> True    -- Zp
